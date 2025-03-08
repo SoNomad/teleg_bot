@@ -6,10 +6,11 @@ const adminId = "5075515168"; // ID админа, куда идут вопрос
 // Стартовое сообщение
 const welcomeMessage = `без негативчика\n\n<i>Создано с помощью <a href="http://t.me/refatherbot?start=iagktybot">@ReFatherBot</a></i>`;
 
-bot.start((ctx) => ctx.replyWithHTML(welcomeMessage), {
-  disable_web_page_preview: true,
-});
-
+bot.start((ctx) =>
+  ctx.replyWithHTML(welcomeMessage, {
+    link_preview_options: { is_disabled: true },
+  })
+);
 // Обработчик вопросов от пользователей
 bot.on("text", async (ctx) => {
   const userId = ctx.message.from.id; // ID отправителя (юзера)
