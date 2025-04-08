@@ -12,21 +12,36 @@ bot.start((ctx) =>
     link_preview_options: { is_disabled: true },
   })
 );
+
 // Обработчик вопросов от пользователей
 bot.on("text", async (ctx) => {
+  // Пропускаем сообщения от админа
+  if (ctx.message.from.id.toString() === adminId) return;
+
   const userId = ctx.message.from.id; // ID отправителя (юзера)
   const userName = ctx.message.from.username || ctx.message.from.first_name;
 
-  await ctx.telegram.sendMessage(
+  // Отправляем сообщение админу и сохраняем ID сообщения
+  const sentMessage = await ctx.telegram.sendMessage(
     adminId,
     `Вопрос от: ${userName} (ID: ${userId}):\n${ctx.message.text}`
   );
-  userQuestions.set(sentMessage.message_id, userId); // Связываем сообщение и userId
+
+  // Сохраняем связь между сообщением и пользователем
+  userQuestions.set(sentMessage.message_id, userId);
+
+  // Подтверждаем пользователю, что его вопрос отправлен
+  await ctx.reply("Ваш вопрос отправлен администратору. Ожидайте ответа.");
 });
 
 // Обработчик ответов от админа
 bot.on("message", async (ctx) => {
-  if (!ctx.message.reply_to_message) return; // Если не ответ — игнорируем
+  // Проверяем, что сообщение от админа и является ответом на другое сообщение
+  if (
+    ctx.message.from.id.toString() !== adminId ||
+    !ctx.message.reply_to_message
+  )
+    return;
 
   const repliedMessageId = ctx.message.reply_to_message.message_id; // ID сообщения, на которое ответили
   const userId = userQuestions.get(repliedMessageId); // Ищем userId в хранилище
@@ -35,8 +50,15 @@ bot.on("message", async (ctx) => {
 
   const replyText = ctx.message.text; // Ответ админа
 
-  await ctx.telegram.sendMessage(userId, `${replyText}`);
-  ctx.reply(`✅ Ответ отправлен пользователю ${userId}.`);
+  try {
+    await ctx.telegram.sendMessage(
+      userId,
+      `Ответ от администратора:\n${replyText}`
+    );
+    ctx.reply(`✅ Ответ отправлен пользователю ${userId}.`);
+  } catch (error) {
+    ctx.reply(`❌ Ошибка при отправке ответа: ${error.message}`);
+  }
 });
 
 bot.launch();
