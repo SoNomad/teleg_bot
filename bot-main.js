@@ -36,28 +36,45 @@ bot.on("text", async (ctx) => {
 
 // Обработчик ответов от админа
 bot.on("message", async (ctx) => {
+  console.log("Получено сообщение от:", ctx.message.from.id);
+  console.log("ID админа:", adminId);
+  console.log("Это ответ на сообщение:", !!ctx.message.reply_to_message);
+
   // Проверяем, что сообщение от админа и является ответом на другое сообщение
   if (
     ctx.message.from.id.toString() !== adminId ||
     !ctx.message.reply_to_message
-  )
+  ) {
+    console.log("Сообщение пропущено: не от админа или не является ответом");
     return;
+  }
 
-  const repliedMessageId = ctx.message.reply_to_message.message_id; // ID сообщения, на которое ответили
-  const userId = userQuestions.get(repliedMessageId); // Ищем userId в хранилище
+  const repliedMessageId = ctx.message.reply_to_message.message_id;
+  console.log("ID сообщения, на которое отвечают:", repliedMessageId);
 
-  if (!userId) return ctx.reply("⚠️ Не могу определить, кому отправить ответ.");
+  const userId = userQuestions.get(repliedMessageId);
+  console.log("Найденный userId:", userId);
+  console.log("Содержимое Map:", Array.from(userQuestions.entries()));
 
-  const replyText = ctx.message.text; // Ответ админа
+  if (!userId) {
+    console.log("userId не найден в Map");
+    return ctx.reply("⚠️ Не могу определить, кому отправить ответ.");
+  }
+
+  const replyText = ctx.message.text;
+  console.log("Текст ответа:", replyText);
 
   try {
+    console.log("Попытка отправки сообщения пользователю:", userId);
     await ctx.telegram.sendMessage(
       userId,
       `Ответ от администратора:\n${replyText}`
     );
-    ctx.reply(`✅ Ответ отправлен пользователю ${userId}.`);
+    console.log("Сообщение успешно отправлено");
+    await ctx.reply(`✅ Ответ отправлен пользователю ${userId}.`);
   } catch (error) {
-    ctx.reply(`❌ Ошибка при отправке ответа: ${error.message}`);
+    console.error("Ошибка при отправке:", error);
+    await ctx.reply(`❌ Ошибка при отправке ответа: ${error.message}`);
   }
 });
 
