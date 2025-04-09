@@ -31,50 +31,70 @@ bot.on("text", async (ctx) => {
   userQuestions.set(sentMessage.message_id, userId);
 
   // Подтверждаем пользователю, что его вопрос отправлен
-  await ctx.reply("Ваш вопрос отправлен администратору. Ожидайте ответа.");
 });
 
 // Обработчик ответов от админа
 bot.on("message", async (ctx) => {
-  console.log("Получено сообщение от:", ctx.message.from.id);
-  console.log("ID админа:", adminId);
-  console.log("Это ответ на сообщение:", !!ctx.message.reply_to_message);
+  // Проверяем, что сообщение от админа
+  if (ctx.message.from.id.toString() !== adminId) return;
 
-  // Проверяем, что сообщение от админа и является ответом на другое сообщение
-  if (
-    ctx.message.from.id.toString() !== adminId ||
-    !ctx.message.reply_to_message
-  ) {
-    console.log("Сообщение пропущено: не от админа или не является ответом");
-    return;
+  // Если сообщение является ответом на другое сообщение
+  if (ctx.message.reply_to_message) {
+    const repliedMessageId = ctx.message.reply_to_message.message_id; // ID сообщения, на которое ответили
+    const userId = userQuestions.get(repliedMessageId); // Ищем userId в хранилище
+
+    if (!userId)
+      return ctx.reply("⚠️ Не могу определить, кому отправить ответ.");
+
+    const replyText = ctx.message.text; // Ответ админа
+
+    try {
+      await ctx.telegram.sendMessage(userId, `${replyText}`);
+      ctx.reply(`✅ Ответ отправлен пользователю ${userId}.`);
+    } catch (error) {
+      ctx.reply(`❌ Ошибка при отправке ответа: ${error.message}`);
+    }
   }
+  // Если сообщение начинается с @username или ID пользователя
+  else if (ctx.message.text) {
+    const messageText = ctx.message.text;
+    const parts = messageText.split(" ");
 
-  const repliedMessageId = ctx.message.reply_to_message.message_id;
-  console.log("ID сообщения, на которое отвечают:", repliedMessageId);
+    if (parts.length < 2) {
+      return ctx.reply(
+        "⚠️ Формат сообщения: @username или ID пользователя, затем текст сообщения"
+      );
+    }
 
-  const userId = userQuestions.get(repliedMessageId);
-  console.log("Найденный userId:", userId);
-  console.log("Содержимое Map:", Array.from(userQuestions.entries()));
+    const recipient = parts[0];
+    const messageContent = parts.slice(1).join(" ");
 
-  if (!userId) {
-    console.log("userId не найден в Map");
-    return ctx.reply("⚠️ Не могу определить, кому отправить ответ.");
-  }
+    let targetUserId;
 
-  const replyText = ctx.message.text;
-  console.log("Текст ответа:", replyText);
+    // Проверяем, является ли получатель ID или username
+    if (recipient.startsWith("@")) {
+      // Если это username, нужно получить ID пользователя
+      // В Telegraf нет прямого метода для получения ID по username
+      // Можно использовать метод getChat, но он работает только если бот уже взаимодействовал с пользователем
+      try {
+        const chat = await ctx.telegram.getChat(recipient);
+        targetUserId = chat.id;
+      } catch (error) {
+        return ctx.reply(
+          `❌ Не удалось найти пользователя с username ${recipient}`
+        );
+      }
+    } else {
+      // Если это ID
+      targetUserId = recipient;
+    }
 
-  try {
-    console.log("Попытка отправки сообщения пользователю:", userId);
-    await ctx.telegram.sendMessage(
-      userId,
-      `Ответ от администратора:\n${replyText}`
-    );
-    console.log("Сообщение успешно отправлено");
-    await ctx.reply(`✅ Ответ отправлен пользователю ${userId}.`);
-  } catch (error) {
-    console.error("Ошибка при отправке:", error);
-    await ctx.reply(`❌ Ошибка при отправке ответа: ${error.message}`);
+    try {
+      await ctx.telegram.sendMessage(targetUserId, `${messageContent}`);
+      ctx.reply(`✅ Сообщение отправлено пользователю ${targetUserId}.`);
+    } catch (error) {
+      ctx.reply(`❌ Ошибка при отправке сообщения: ${error.message}`);
+    }
   }
 });
 
